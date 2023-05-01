@@ -68,18 +68,21 @@ def main():
         year_month_string = datetime(year, month, 1).strftime('%b %y')
         
         if (year, month) not in zip(created_playlists_df['year'], created_playlists_df['month']):
-            print(f'{year_month_string}: No record of existing playlist; creating and adding liked songs')
-            playlist_create_results = sp.user_playlist_create(
-                user=current_user_id, 
-                name=year_month_string
-            )
-            playlist_id = playlist_create_results['id']
-            sp.playlist_add_items(
-                playlist_id=playlist_id,
-                items=month_liked_track_uris
-            )
-            with open('created_playlists.csv', 'a') as created_playlists_csv:
-                created_playlists_csv.write(f'{year},{month},{playlist_id}\n')
+            if len(month_liked_track_uris) > 0:
+                print(f'{year_month_string}: No record of existing playlist; creating and adding liked songs')
+                playlist_create_results = sp.user_playlist_create(
+                    user=current_user_id, 
+                    name=year_month_string
+                )
+                playlist_id = playlist_create_results['id']
+                sp.playlist_add_items(
+                    playlist_id=playlist_id,
+                    items=month_liked_track_uris
+                )
+                with open('created_playlists.csv', 'a') as created_playlists_csv:
+                    created_playlists_csv.write(f'{year},{month},{playlist_id}\n')
+            else:
+                print(f'{year_month_string}: No liked songs; not creating playlist')
         else:
             print(f'{year_month_string}: Playlist already exists')
             playlist_id = created_playlists_df.query(f'year == {year} & month == {month}')['id'].values[0]

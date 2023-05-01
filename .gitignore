@@ -1,0 +1,5 @@
+spotify_secrets.py
+*.ipynb
+*.csv
+__pycache__
+.cache

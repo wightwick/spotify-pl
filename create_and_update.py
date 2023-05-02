@@ -1,9 +1,9 @@
 import spotipy
 from spotipy.oauth2 import SpotifyOAuth
 from spotify_secrets import *
-from datetime import datetime, timedelta
+from datetime import datetime
 import pandas as pd
-from dateutil import parser, tz, relativedelta
+from dateutil import parser, tz
 import sys
 
 def main():

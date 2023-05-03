@@ -7,12 +7,22 @@ from dateutil import parser, tz
 import sys
 
 def main():
-    if len(sys.argv) > 1: 
-        start_date = datetime.strptime(sys.argv[1], '%Y-%m').replace(tzinfo=tz.tzutc())
-    
-    else:
-        start_date = datetime(datetime.now().year, (datetime.now().month - 1) % 12, 1).replace(tzinfo=tz.tzutc())
+    if len(sys.argv) > 1:
+        start_date = (
+            datetime
+                .strptime(sys.argv[1], '%Y-%m')
+                .replace(tzinfo=tz.tzutc())
+        )
 
+    else:
+        start_date = (
+            datetime(
+                datetime.now().year,
+                (datetime.now().month - 1) % 12,
+                1
+            )
+            .replace(tzinfo=tz.tzutc())
+        )
     print(f'Start date: {start_date.date()}')
 
     scopes = [
@@ -25,7 +35,8 @@ def main():
             scope=scopes,
             client_id=SPOTIPY_CLIENT_ID,
             client_secret=SPOTIPY_CLIENT_SECRET,
-            redirect_uri=SPOTIPY_REDIRECT_URI
+            redirect_uri=SPOTIPY_REDIRECT_URI,
+            open_browser=False
         )
     )
     print('Spotify connection established')
@@ -33,7 +44,7 @@ def main():
     offset = 0
     while len(liked_songs_raw) == 0 or parser.parse(liked_songs_raw[-1]['added_at']) > start_date:
         results = sp.current_user_saved_tracks(limit=50, offset=offset)
-        
+
         liked_songs_raw = liked_songs_raw + results['items']
 
         offset+=50
@@ -42,10 +53,10 @@ def main():
     current_user_id = sp.current_user()['id']
     liked_tracks_df = pd.DataFrame([
         {
-            'dt_added': parser.parse(song['added_at']),
+            'dt_added': parser.parse(song['added_at']).replace(tzinfo=tz.tzutc()),
             'uri': song['track']['uri']
-        } 
-        for song 
+        }
+        for song
         in liked_songs_raw
     ])
     months_to_consider = pd.date_range(start_date, liked_tracks_df['dt_added'].max(), freq='MS')
@@ -58,7 +69,7 @@ def main():
             print('\'created_playlists.csv\' file already exists')
 
     created_playlists_df = pd.read_csv('created_playlists.csv')
-        
+
     for year, month in zip(months_to_consider.year, months_to_consider.month):
         month_liked_track_uris = liked_tracks_df.query(
             f'dt_added.dt.year == {year} &'
@@ -66,12 +77,12 @@ def main():
         ).iloc[::-1]['uri'] # reverse order
 
         year_month_string = datetime(year, month, 1).strftime('%b %y')
-        
+
         if (year, month) not in zip(created_playlists_df['year'], created_playlists_df['month']):
             if len(month_liked_track_uris) > 0:
                 print(f'{year_month_string}: No record of existing playlist; creating and adding liked songs')
                 playlist_create_results = sp.user_playlist_create(
-                    user=current_user_id, 
+                    user=current_user_id,
                     name=year_month_string
                 )
                 playlist_id = playlist_create_results['id']
@@ -86,7 +97,7 @@ def main():
         else:
             print(f'{year_month_string}: Playlist already exists')
             playlist_id = created_playlists_df.query(f'year == {year} & month == {month}')['id'].values[0]
-            
+
             # playlist_tracks() max limit is 100; if we have more than 100 songs in the month
             # playlist already we must get the track info in several batches.
             playlist_track_items = []
@@ -101,7 +112,7 @@ def main():
                 need_to_get_more_tracks = len(track_items_batch) == 100
 
             uris_already_in_playlist = [
-                item['track']['uri'] 
+                item['track']['uri']
                 for item
                 in sp.playlist_tracks(playlist_id=playlist_id)['items']
             ]

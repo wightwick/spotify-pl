@@ -41,9 +41,10 @@ def main():
     )
     print('Spotify connection established')
 
+    
     ls_results = sp.current_user_saved_tracks()
     liked_songs = ls_results['items']
-    while ls_results['next']:
+    while ls_results['next'] and parser.parse(liked_songs[-1]['added_at']) > start_date:
         ls_results = sp.next(ls_results)
         liked_songs.extend(ls_results['items'])
 

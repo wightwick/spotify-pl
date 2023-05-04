@@ -40,26 +40,33 @@ def main():
         )
     )
     print('Spotify connection established')
-    liked_songs_raw = []
-    offset = 0
-    while len(liked_songs_raw) == 0 or parser.parse(liked_songs_raw[-1]['added_at']) > start_date:
-        results = sp.current_user_saved_tracks(limit=50, offset=offset)
 
-        liked_songs_raw = liked_songs_raw + results['items']
+    ls_results = sp.current_user_saved_tracks()
+    liked_songs = ls_results['items']
+    while ls_results['next']:
+        ls_results = sp.next(ls_results)
+        liked_songs.extend(ls_results['items'])
 
-        offset+=50
     print('Liked song info obtained')
 
     current_user_id = sp.current_user()['id']
     liked_tracks_df = pd.DataFrame([
         {
-            'dt_added': parser.parse(song['added_at']).replace(tzinfo=tz.tzutc()),
+            'dt_added': (
+                parser
+                    .parse(song['added_at'])
+                    .replace(tzinfo=tz.tzutc())
+            ),
             'uri': song['track']['uri']
         }
         for song
-        in liked_songs_raw
+        in liked_songs
     ])
-    months_to_consider = pd.date_range(start_date, liked_tracks_df['dt_added'].max(), freq='MS')
+    months_to_consider = pd.date_range(
+        start_date,
+        liked_tracks_df['dt_added'].max(),
+        freq='MS'
+    )
 
     try:
             with open('created_playlists.csv', 'x') as created_playlists_csv:
@@ -78,9 +85,15 @@ def main():
 
         year_month_string = datetime(year, month, 1).strftime('%b %y')
 
-        if (year, month) not in zip(created_playlists_df['year'], created_playlists_df['month']):
+        if (year, month) not in zip(
+            created_playlists_df['year'], 
+            created_playlists_df['month']
+        ):
             if len(month_liked_track_uris) > 0:
-                print(f'{year_month_string}: No record of existing playlist; creating and adding liked songs')
+                print(
+                    f'{year_month_string}: No record of existing playlist; '
+                    'creating and adding liked songs'
+                )
                 playlist_create_results = sp.user_playlist_create(
                     user=current_user_id,
                     name=year_month_string
@@ -91,30 +104,30 @@ def main():
                     items=month_liked_track_uris
                 )
                 with open('created_playlists.csv', 'a') as created_playlists_csv:
-                    created_playlists_csv.write(f'{year},{month},{playlist_id}\n')
+                    created_playlists_csv.write(
+                        f'{year},{month},{playlist_id}\n'
+                    )
             else:
                 print(f'{year_month_string}: No liked songs; not creating playlist')
         else:
             print(f'{year_month_string}: Playlist already exists')
-            playlist_id = created_playlists_df.query(f'year == {year} & month == {month}')['id'].values[0]
+            playlist_id = (
+                created_playlists_df
+                    .query(f'year == {year} & month == {month}')
+                    ['id']
+                    .values[0]
+            )
 
-            # playlist_tracks() max limit is 100; if we have more than 100 songs in the month
-            # playlist already we must get the track info in several batches.
-            playlist_track_items = []
-            need_to_get_more_tracks = True
-            while need_to_get_more_tracks:
-                track_items_batch = sp.playlist_tracks(
-                    playlist_id=playlist_id,
-                    limit=100,
-                    offset=len(playlist_track_items)
-                )['items']
-                playlist_track_items = playlist_track_items + track_items_batch
-                need_to_get_more_tracks = len(track_items_batch) == 100
-
+            playlist_track_results = sp.playlist_tracks(playlist_id=playlist_id)
+            playlist_tracks = playlist_track_results['items']
+            while playlist_track_results['next']:
+                playlist_track_results = sp.next(playlist_track_results)
+                playlist_tracks.extend(playlist_track_results['items'])
+            
             uris_already_in_playlist = [
                 item['track']['uri']
                 for item
-                in sp.playlist_tracks(playlist_id=playlist_id)['items']
+                in playlist_tracks
             ]
 
             uris_not_yet_in_playlist = list(

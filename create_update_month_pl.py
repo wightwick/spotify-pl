@@ -142,10 +142,12 @@ def main():
             ]
 
             # determine which liked songs are not yet in the playlist and add them
-            uris_not_yet_in_playlist = list(
-                set(month_liked_track_uris)
-                .difference(set(uris_already_in_playlist))
-            )
+            uris_not_yet_in_playlist = [
+                uri
+                for uri
+                in month_liked_track_uris
+                if uri not in uris_already_in_playlist
+            ]
             num_new_uris = len(uris_not_yet_in_playlist)
             if num_new_uris != 0:
                 print(' ' * (len(year_month_string) + 2) + f'Adding new liked songs ({num_new_uris})')
